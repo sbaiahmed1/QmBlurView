@@ -14,6 +14,7 @@ import android.util.AttributeSet;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewTreeObserver;
+import android.view.TextureView;
 
 import androidx.annotation.NonNull;
 
@@ -120,6 +121,37 @@ public abstract class BaseBlurView extends View {
             }
         } catch (Exception e) {
             Log.e(TAG, "Error disabling hardware bitmaps: " + e.getMessage());
+        }
+    }
+
+    private void drawTextureViews(View view, Canvas canvas) {
+        if (view instanceof TextureView) {
+            TextureView textureView = (TextureView) view;
+            if (textureView.getVisibility() == View.VISIBLE && textureView.isAvailable()) {
+                int[] locDecor = new int[2];
+                mDecorView.getLocationOnScreen(locDecor);
+
+                int[] locTexture = new int[2];
+                textureView.getLocationOnScreen(locTexture);
+
+                int left = locTexture[0] - locDecor[0];
+                int top = locTexture[1] - locDecor[1];
+
+                Bitmap bitmap = textureView.getBitmap();
+                if (bitmap != null) {
+                    bitmap = ensureSoftwareBitmap(bitmap);
+                    canvas.save();
+                    canvas.translate(left, top);
+                    canvas.drawBitmap(bitmap, 0, 0, null);
+                    canvas.restore();
+                    bitmap.recycle();
+                }
+            }
+        } else if (view instanceof android.view.ViewGroup) {
+            android.view.ViewGroup group = (android.view.ViewGroup) view;
+            for (int i = 0; i < group.getChildCount(); i++) {
+                drawTextureViews(group.getChildAt(i), canvas);
+            }
         }
     }
 
@@ -293,6 +325,8 @@ public abstract class BaseBlurView extends View {
                             throw e;
                         }
                     }
+
+                    drawTextureViews(decor, mBlurringCanvas);
                 } finally {
                     mIsRendering = false;
                     mBlurringCanvas.restoreToCount(saveCount);
